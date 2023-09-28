@@ -1,0 +1,191 @@
+import './style.css'
+
+// initialize canvas
+const canvas = document.querySelector('canvas')
+const context = canvas.getContext('2d')
+const $score = document.querySelector('span')
+
+const BLOCK_SIZE = 20
+const BOARD_WIDTH = 14
+const BOARD_HEIGHT = 30
+
+let score = 0
+
+canvas.width = BLOCK_SIZE * BOARD_WIDTH
+canvas.height = BLOCK_SIZE * BOARD_HEIGHT
+
+context.scale(BLOCK_SIZE, BLOCK_SIZE)
+
+const createBoard = (width, height) => {
+  return Array(height).fill().map(() => Array(width).fill(0))
+}
+// board
+const board = createBoard(BOARD_WIDTH, BOARD_HEIGHT)
+
+// random pieces
+const PIECES = [
+  [
+    [1, 1],
+    [1, 1]
+  ],
+  [
+    [1, 1, 1, 1]
+  ],
+  [
+    [0, 1, 0],
+    [1, 1, 1]
+  ],
+  [
+    [1, 1, 0],
+    [0, 1, 1]
+  ],
+  [
+    [1, 0],
+    [1, 0],
+    [1, 1]
+  ]
+]
+
+// player piece
+const piece = {
+  position: { x: BOARD_WIDTH / 2 - 1, y: 0 },
+  shape: PIECES[Math.floor(Math.random() * PIECES.length)]
+}
+
+// game loop
+// function update () {
+//   draw()
+//   window.requestAnimationFrame(update)
+// }
+// auto drop
+let dropCounter = 0
+let lastTime = 0
+function update (time = 0) {
+  const deltaTime = time - lastTime
+  lastTime = time
+
+  dropCounter += deltaTime
+
+  if (dropCounter > 500) {
+    piece.position.y++
+    dropCounter = 0
+    if (checkCollision()) {
+      piece.position.y--
+      solidifyPiece()
+      removeRow()
+    }
+  }
+
+  draw()
+  window.requestAnimationFrame(update)
+}
+
+function draw () {
+  context.fillStyle = '#000'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+
+  $score.textContent = score
+  board.forEach((row, y) => {
+    row.forEach((value, x) => {
+      if (value === 1) {
+        context.fillStyle = 'red'
+        context.fillRect(x, y, 1, 1)
+      }
+    })
+  })
+
+  piece.shape.forEach((row, y) => {
+    row.forEach((value, x) => {
+      if (value === 1) {
+        context.fillStyle = 'yellow'
+        context.fillRect(piece.position.x + x, piece.position.y + y, 1, 1)
+      }
+    })
+  })
+}
+
+document.addEventListener('keydown', event => {
+  switch (event.key) {
+    case 'ArrowLeft':{
+      piece.position.x--
+      if (checkCollision()) piece.position.x++
+      break
+    }
+    case 'ArrowRight':{
+      piece.position.x++
+      if (checkCollision()) piece.position.x--
+      break
+    }
+    case 'ArrowDown':
+      piece.position.y++
+      if (checkCollision()) {
+        piece.position.y--
+        solidifyPiece()
+        removeRow()
+      }
+      break
+    case 'ArrowUp':{
+      const rotatedPiece = []
+
+      for (let i = 0; i < piece.shape[0].length; i++) {
+        const row = []
+
+        for (let j = piece.shape.length - 1; j >= 0; j--) {
+          row.push(piece.shape[j][i])
+        }
+        rotatedPiece.push(row)
+      }
+      const previousShape = piece.shape
+      piece.shape = rotatedPiece
+      if (checkCollision()) piece.shape = previousShape
+    }
+  }
+})
+
+function checkCollision () {
+  return piece.shape.find((row, y) => {
+    return row.find((value, x) => {
+      return value !== 0 && board[piece.position.y + y]?.[piece.position.x + x] !== 0
+    })
+  })
+}
+
+function solidifyPiece () {
+  piece.shape.forEach((row, y) => {
+    row.forEach((value, x) => {
+      if (value === 1) {
+        board[piece.position.y + y][piece.position.x + x] = 1
+      }
+    })
+  })
+
+  // reset position
+  piece.position.x = BOARD_WIDTH / 2 - 1
+  piece.position.y = 0
+  // random piece
+  piece.shape = PIECES[Math.floor(Math.random() * PIECES.length)]
+
+  // gameover
+  if (checkCollision()) {
+    window.alert('Game Over!')
+    board.forEach(row => row.fill(0))
+  }
+}
+
+function removeRow () {
+  const rowsToRemove = []
+
+  board.forEach((row, y) => {
+    if (row.every(value => value === 1)) {
+      rowsToRemove.push(y)
+    }
+  })
+
+  rowsToRemove.forEach(y => {
+    board.splice(y, 1)
+    board.unshift(new Array(BOARD_WIDTH).fill(0))
+    score += 10
+  })
+}
+
+update()
